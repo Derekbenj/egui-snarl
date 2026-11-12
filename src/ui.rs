@@ -1159,7 +1159,8 @@ where
             }
         }
 
-        let color = mix_colors(from_r.wire_color, to_r.wire_color);
+        let color =
+            viewer.connected_wire_color(wire.out_pin, wire.in_pin, snarl, from_r.wire_color); // Zegra: sender runtime owns wire color
 
         let mut draw_width = wire_width;
         if hovered_wire == Some(wire) {
@@ -1238,12 +1239,77 @@ where
         snarl_state.look_at(nodes_bb, ui_rect, min_scale, max_scale);
     }
 
+    // Zegra: clicking empty canvas restores every color.
+    if snarl_resp.clicked_by(PointerButton::Primary) {
+        viewer.background_clicked(snarl);
+    }
+
     if modifiers.command && snarl_resp.clicked_by(PointerButton::Primary) {
         snarl_state.deselect_all_nodes();
     }
 
     // Wire end position will be overridden when link graph menu is opened.
     let mut wire_end_pos = latest_pos.unwrap_or_else(|| snarl_resp.rect.center());
+
+    // Zegra: magnetic, schema-aware pin snapping. Hit target is intentionally
+    // larger than the visible circle: the pointer may stop nearby and still
+    // connect. The target exists only while actively dragging a wire.
+    // Use screen-space distances so zoom doesn't change the feel of snapping.
+    if let (Some(pointer), Some(wires)) = (latest_pos, snarl_state.new_wires()) {
+        let radius = 26.0_f32;
+        let mut closest: Option<(f32, AnyPin, Pos2)> = None;
+        match wires {
+            NewWires::Out(sources) => {
+                for (&target, info) in &input_info {
+                    let compatible = sources.iter().any(|&source| {
+                        viewer.can_snap(
+                            &OutPin::new(snarl, source),
+                            &InPin::new(snarl, target),
+                            snarl,
+                        )
+                    });
+                    if !compatible {
+                        continue;
+                    }
+                    let d2 = (pointer - info.pos).length_sq();
+                    if d2 <= radius * radius && closest.is_none_or(|(best, _, _)| d2 < best) {
+                        closest = Some((d2, AnyPin::In(target), info.pos));
+                    }
+                }
+            }
+            NewWires::In(targets) => {
+                for (&source, info) in &output_info {
+                    let compatible = targets.iter().any(|&target| {
+                        viewer.can_snap(
+                            &OutPin::new(snarl, source),
+                            &InPin::new(snarl, target),
+                            snarl,
+                        )
+                    });
+                    if !compatible {
+                        continue;
+                    }
+                    let d2 = (pointer - info.pos).length_sq();
+                    if d2 <= radius * radius && closest.is_none_or(|(best, _, _)| d2 < best) {
+                        closest = Some((d2, AnyPin::Out(source), info.pos));
+                    }
+                }
+            }
+        }
+        if let Some((d2, target, center)) = closest {
+            pin_hovered = Some(target);
+            // Smoothstep attraction, strongest near the pin. It does not move
+            // the pointer, only the provisional wire endpoint.
+            let t = (1.0 - d2.sqrt() / radius).clamp(0.0, 1.0);
+            let t = t * t * (3.0 - 2.0 * t);
+            wire_end_pos = pointer + (center - pointer) * t;
+            ui.painter().circle_stroke(
+                center,
+                style.get_pin_size(ui.style()) * 1.1,
+                Stroke::new(1.5, ui.visuals().selection.stroke.color),
+            );
+        }
+    }
 
     if drag_released {
         let new_wires = snarl_state.take_new_wires();
@@ -1884,6 +1950,16 @@ where
         }
     }
 
+    // Zegra Workbench: per-node actions on secondary click.
+    r.context_menu(|ui| {
+        viewer.node_context_menu(node, snarl, ui);
+    });
+
+    // Zegra: node click focuses its confirmed connected component.
+    if r.clicked_by(PointerButton::Primary) {
+        viewer.node_clicked(node, snarl);
+    }
+
     if r.clicked() || r.dragged() {
         node_to_top = Some(node);
     }
@@ -2474,16 +2550,16 @@ where
     })
 }
 
-const fn mix_colors(a: Color32, b: Color32) -> Color32 {
-    #![allow(clippy::cast_possible_truncation)]
-
-    Color32::from_rgba_premultiplied(
-        u8::midpoint(a.r(), b.r()),
-        u8::midpoint(a.g(), b.g()),
-        u8::midpoint(a.b(), b.b()),
-        u8::midpoint(a.a(), b.a()),
-    )
-}
+// const fn mix_colors(a: Color32, b: Color32) -> Color32 {
+//     #![allow(clippy::cast_possible_truncation)]
+//
+//     Color32::from_rgba_premultiplied(
+//         u8::midpoint(a.r(), b.r()),
+//         u8::midpoint(a.g(), b.g()),
+//         u8::midpoint(a.b(), b.b()),
+//         u8::midpoint(a.a(), b.a()),
+//     )
+// }
 
 // fn mix_colors(mut colors: impl Iterator<Item = Color32>) -> Option<Color32> {
 //     let color = colors.next()?;

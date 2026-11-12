@@ -287,6 +287,40 @@ pub trait SnarlViewer<T> {
         let _ = (node, inputs, outputs, ui, snarl);
     }
 
+    /// Whether an opposite-side pin is a valid magnetic snap target.
+    /// Applications can reject incompatible schemas without changing the
+    /// graph on hover. Final connections are still decided by `connect`.
+    fn can_snap(&mut self, from: &OutPin, to: &InPin, snarl: &Snarl<T>) -> bool {
+        let _ = (from, to, snarl);
+        true
+    }
+    /// Optional right-click menu on a node frame.
+    fn node_context_menu(&mut self, node: NodeId, snarl: &Snarl<T>, ui: &mut egui::Ui) {
+        let _ = (node, snarl, ui);
+    }
+
+    /// Click a node without modifying any Zegra connection.
+    fn node_clicked(&mut self, node: NodeId, snarl: &Snarl<T>) {
+        let _ = (node, snarl);
+    }
+
+    /// Click empty canvas to clear an application-specific focus.
+    fn background_clicked(&mut self, snarl: &Snarl<T>) {
+        let _ = snarl;
+    }
+
+    /// Override the sender's confirmed wire color during rendering.
+    fn connected_wire_color(
+        &mut self,
+        from: OutPinId,
+        to: InPinId,
+        snarl: &Snarl<T>,
+        sender_color: egui::Color32,
+    ) -> egui::Color32 {
+        let _ = (from, to, snarl);
+        sender_color
+    }
+
     /// Asks the viewer to connect two pins.
     ///
     /// This is usually happens when user drags a wire from one node's output pin to another node's input pin or vice versa.

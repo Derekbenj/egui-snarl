@@ -321,6 +321,17 @@ pub trait SnarlViewer<T> {
         sender_color
     }
 
+    /// A glow of this color along a confirmed wire, for one that is to stand out.
+    fn connected_wire_glow(
+        &mut self,
+        from: OutPinId,
+        to: InPinId,
+        snarl: &Snarl<T>,
+    ) -> Option<egui::Color32> {
+        let _ = (from, to, snarl);
+        None
+    }
+
     /// Asks the viewer to connect two pins.
     ///
     /// This is usually happens when user drags a wire from one node's output pin to another node's input pin or vice versa.

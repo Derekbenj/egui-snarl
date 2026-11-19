@@ -1167,6 +1167,30 @@ where
             draw_width *= 1.5;
         }
 
+        // triq: a wire that is to stand out lies on a glow, which is the wire
+        // drawn wider and fainter a few times over.
+        if let Some(glow) = viewer.connected_wire_glow(wire.out_pin, wire.in_pin, snarl) {
+            for wider in [14.0, 10.0, 6.0, 3.0] {
+                draw_wire(
+                    &ui,
+                    WireId::Connected {
+                        snarl_id,
+                        out_pin: wire.out_pin,
+                        in_pin: wire.in_pin,
+                    },
+                    &mut wire_shapes,
+                    wire_frame_size,
+                    style.get_upscale_wire_frame(),
+                    style.get_downscale_wire_frame(),
+                    from_r.pos,
+                    to_r.pos,
+                    Stroke::new(draw_width + wider, glow.gamma_multiply(0.25)),
+                    wire_threshold,
+                    pick_wire_style(from_r.wire_style, to_r.wire_style),
+                );
+            }
+        }
+
         draw_wire(
             &ui,
             WireId::Connected {
@@ -1244,7 +1268,9 @@ where
         viewer.background_clicked(snarl);
     }
 
-    if modifiers.command && snarl_resp.clicked_by(PointerButton::Primary) {
+    // triq: a click on empty canvas lets go of the selection. With Shift held
+    // it does not: Shift is held to select more.
+    if !modifiers.shift && snarl_resp.clicked_by(PointerButton::Primary) {
         snarl_state.deselect_all_nodes();
     }
 

@@ -332,6 +332,20 @@ pub trait SnarlViewer<T> {
         None
     }
 
+    /// Colors that the fill of a node's header fades through, from left to
+    /// right, each with as much room as any other. With fewer than two, the
+    /// header has the fill of its frame. `default` is the fill of the style's
+    /// header frame, for colors that are to be tints of it.
+    fn header_gradient(
+        &mut self,
+        default: egui::Color32,
+        node: NodeId,
+        snarl: &Snarl<T>,
+    ) -> Vec<egui::Color32> {
+        let _ = (default, node, snarl);
+        Vec::new()
+    }
+
     /// Asks the viewer to connect two pins.
     ///
     /// This is usually happens when user drags a wire from one node's output pin to another node's input pin or vice versa.

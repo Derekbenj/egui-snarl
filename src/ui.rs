@@ -19,6 +19,7 @@ use smallvec::SmallVec;
 use crate::{InPin, InPinId, Node, NodeId, OutPin, OutPinId, Snarl, ui::wire::WireId};
 
 mod background_pattern;
+mod gradient;
 mod pin;
 mod scale;
 mod state;
@@ -1919,6 +1920,10 @@ where
         snarl,
     );
 
+    // triq: a header may fade through several colors.
+    let header_colors =
+        viewer.header_gradient(style.get_header_frame(ui.style()).fill, node, snarl);
+
     // Rect for node + frame margin.
     let node_frame_rect = node_rect + node_frame.total_margin();
 
@@ -2511,7 +2516,10 @@ where
                 .id_salt("header"),
         );
 
-        header_frame.show(header_ui, |ui: &mut Ui| {
+        let header_shown = header_frame.show(header_ui, |ui: &mut Ui| {
+            // triq: over the fill of the frame, and under what is written on it.
+            let fade = ui.painter().add(Shape::Noop);
+
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
                 if style.get_collapsible() {
                     let (_, r) = ui.allocate_exact_size(
@@ -2542,7 +2550,16 @@ where
                     header_rect.min.y,
                 ),
             ));
+
+            fade
         });
+
+        if header_colors.len() > 1 {
+            let filled = (header_shown.response.rect - header_frame.outer_margin)
+                .shrink(header_frame.stroke.width);
+            let fade = gradient::faded_rect(filled, header_frame.corner_radius, &header_colors);
+            ui.painter().set(header_shown.inner, fade);
+        }
 
         ui.expand_to_include_rect(header_rect);
         let header_size = header_rect.size();
